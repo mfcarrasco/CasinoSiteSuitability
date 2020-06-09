@@ -70,19 +70,22 @@ npBuffer = nParks %>%
 #Create a map with a boundary around downtown and the national parks
 library(mapview)
 m = mapview(gettyBoundary,
-            col.region = '#EC2810',#red
+            col.region = "#D55E00",#orange
         alpha.regions = 0.5,
         alpha = 1,
-        layer.name = 'Gettysburg Downtown') +
+        layer.name = 'Gettysburg Downtown',
+        legend = F) +
   mapview(gettyBuffer, 
-          col.region = '#1C5f15',#green
-          layer.name = 'Buffer around Gettysburg Downtown') +
+          col.region = "#009E73",#green
+          layer.name = 'Buffer around Gettysburg Downtown',
+          legend =F) +
   mapview(npBuffer, 
-          col.region = '#EC2810',#red
-          layer.name = 'Buffer around National Parks')
+          col.region = "#D55E00",#orange
+          layer.name = 'Buffer around National Parks',
+          legend = F)
 
 m@map %>%
-  setView(lng = -77.2311, 
+  leaflet::setView(lng = -77.2311, 
           lat = 39.8309,
           zoom = 12)
 ```
@@ -101,20 +104,24 @@ hwyBuffer = st_buffer(highways,50)
 
 #Create a map with a boundary around downtown, the national parks, and the highways
 m = mapview(gettyBoundary,
-            col.region = '#EC2810',#red
-        layer.name = 'Gettysburg Downtown') +
+            col.region = "#D55E00",#orange
+        layer.name = 'Gettysburg Downtown',
+        legend = F) +
   mapview(gettyBuffer, 
-          col.region = '#1C5f15',#green
-          layer.name = 'Buffer around Gettysburg Downtown') +
+          col.region = "#009E73",#green
+          layer.name = 'Buffer around Gettysburg Downtown',
+          legend =F) +
   mapview(npBuffer, 
-          col.region = '#EC2810',#red
-          layer.name = 'Buffer around National Parks')+
+          col.region = "#D55E00",#orange
+          layer.name = 'Buffer around National Parks',
+          legend = F) +
   mapview(hwyBuffer, 
-          col.region = '#1C5f15',#green
-          layer.name = 'Buffer around highways')
+          col.region = "#009E73",#green
+          layer.name = 'Buffer around highways',
+          legend = F)
 
 m@map %>%
-  setView(lng = -77.2311, 
+  leaflet::setView(lng = -77.2311, 
           lat = 39.8309,
           zoom = 12)
 ```
@@ -135,25 +142,31 @@ attributeSelect = blocks %>%
            zoning == 2)
 
 #Create a map with the blocks and boundaries. 
-m = mapview(gettyBoundary,
-            col.region = '#EC2810',#red
-            alpha.region = .2,
-            layer.name = 'Gettysburg Downtown') +
-  mapview(attributeSelect,
-          col.region = '#1C5f15',#green
-          layer.name = 'Selected Census Blocks') +
-  mapview(gettyBuffer,
-          col.region = '#1C5f15',#green
+m = mapview(attributeSelect,
+          col.region = "#009E73",#green
+          layer.name = 'Selected Census Blocks',
+          legend= F) +
+  mapview(gettyBoundary,
+          col.region = "#D55E00",#orange
+        layer.name = 'Gettysburg Downtown',
+        legend = F,
+         alpha.region = .2) +
+  mapview(gettyBuffer, 
+          col.region = "#009E73",#green
           layer.name = 'Buffer around Gettysburg Downtown',
-          alpha.regions = .2) +
-  mapview(npBuffer,
-          col.region = '#EC2810',#red
+          legend =F,
+          alpha.region = .2) +
+  mapview(npBuffer, 
+          col.region = "#D55E00",#orange
           layer.name = 'Buffer around National Parks',
-          alpha.regions = .2)+
-  mapview(hwyBuffer,
-          col.region = '#1C5f15',#green
+          legend = F,
+          alpha.region = .2) +
+  mapview(hwyBuffer, 
+          col.region = "#009E73",#green
           layer.name = 'Buffer around highways',
-          alpha.regions = .2)
+          legend = F,
+          alpha.region = .2)
+
 
 m@map %>%
   setView(lng = -77.2311, 
@@ -196,7 +209,7 @@ leaflet() %>%
   addTiles() %>%
   leafem::addFeatures(finalSelection,
                       weight = 1,
-                      fillColor='#df1fca',#gold
+                      fillColor='#df1fca',#fuchia
                       color = '#A89932',#gold,
                       opacity = 1,
                       fillOpacity = .8) %>%
