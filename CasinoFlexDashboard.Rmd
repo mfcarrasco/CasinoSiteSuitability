@@ -2,8 +2,9 @@
 title: "Casino Site Suitability"
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
-    vertical_layout: fill
+    storyboard: true
+    social: menu
+    theme: flatly
     
 knit: (function(input_file, encoding) {
   out_dir <- 'docs';
@@ -14,29 +15,200 @@ knit: (function(input_file, encoding) {
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
+library(tidyverse)
+library(sf)
+options(stringsAsFactors = F) 
+
+#Read in the four shapefiles for the analysis
+blocks = st_read('data/Gettysburg_blocks.shp')
+gettyBoundary = st_read('data/Gettysburg_boundary.shp')
+highways = st_read('data/gettysburgHighways.shp')
+nParks = st_read('data/gettysburgNationalParks.shp')
+
 ```
 
-Column {data-width=650}
------------------------------------------------------------------------
-
-### Chart A
+### This dashboard is an example of a site suitability analysis done in R. The suitability analysis tutorial was created by [Ken Steif](http://urbanspatialanalysis.com/introduction-to-spatial-site-suitability-analysis-in-r/) and the dashboard was created by [Malle Carrasco-Harris, PhD](https://www.linkedin.com/in/malle-carrasco-harris).
 
 ```{r}
-
+library(leaflet)
+leaflet() %>%
+  addTiles() %>%
+  setView(lng = -77.2311, 
+          lat = 39.8309, 
+          zoom = 12)
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
+*** 
 
-### Chart B
+In this tutorial, we are considering where a potential new casino should be located in Gettysburg, Pennsylvania. We take into account various decision factors, including:
+
+- the town boundary
+
+- the National Park
+
+- ease of access by thoroughfare
+
+- land zoning
+
+- population density
+
+- land area
+
+
+### The proposed casino should not be in certain places.
 
 ```{r}
+#Buffer away from downtown 
+gettyBuffer = gettyBoundary %>%
+  st_buffer(1609) %>%
+  st_difference(., gettyBoundary)
 
+#Buffer away from National Park
+npBuffer = nParks %>%
+  st_buffer(402)
+
+#Create a map with a boundary around downtown and the national parks
+library(mapview)
+m = mapview(gettyBoundary,
+            col.region = '#EC2810',#red
+        alpha.regions = 0.5,
+        alpha = 1,
+        layer.name = 'Gettysburg Downtown') +
+  mapview(gettyBuffer, 
+          col.region = '#1C5f15',#green
+          layer.name = 'Buffer around Gettysburg Downtown') +
+  mapview(npBuffer, 
+          col.region = '#EC2810',#red
+          layer.name = 'Buffer around National Parks')
+
+m@map %>%
+  setView(lng = -77.2311, 
+          lat = 39.8309,
+          zoom = 12)
 ```
 
-### Chart C
+***
+- The proposed casino cannot be downtown. We create a one mile buffer around the town boundary. 
+
+- We also create a quarter mile buffer around the National Park areas.
+
+
+### The proposed casino should be easy to get to.
 
 ```{r}
+#Adjacent to highway
+hwyBuffer = st_buffer(highways,50)
 
+#Create a map with a boundary around downtown, the national parks, and the highways
+m = mapview(gettyBoundary,
+            col.region = '#EC2810',#red
+        layer.name = 'Gettysburg Downtown') +
+  mapview(gettyBuffer, 
+          col.region = '#1C5f15',#green
+          layer.name = 'Buffer around Gettysburg Downtown') +
+  mapview(npBuffer, 
+          col.region = '#EC2810',#red
+          layer.name = 'Buffer around National Parks')+
+  mapview(hwyBuffer, 
+          col.region = '#1C5f15',#green
+          layer.name = 'Buffer around highways')
+
+m@map %>%
+  setView(lng = -77.2311, 
+          lat = 39.8309,
+          zoom = 12)
 ```
 
+***
+- We consider locations that are easy to get to by creating a 50 meter buffer around the highways. 
+
+
+
+### The selected site should meet certain inherent specifications.
+
+```{r}
+# Existing population density less than median/Greater than 40 acres/Must be commercial
+attributeSelect = blocks %>%
+  mutate(area = as.integer(st_area(blocks))* 0.000247105) %>%
+  filter(area > 40 &
+           pden2000 < median(pden2000) &
+           zoning == 2)
+
+#Create a map with the blocks and boundaries. 
+m = mapview(gettyBoundary,
+            col.region = '#EC2810',#red
+            alpha.region = .2,
+            layer.name = 'Gettysburg Downtown') +
+  mapview(attributeSelect,
+          col.region = '#1C5f15',#green
+          layer.name = 'Selected Census Blocks') +
+  mapview(gettyBuffer,
+          col.region = '#1C5f15',#green
+          layer.name = 'Buffer around Gettysburg Downtown',
+          alpha.regions = .2) +
+  mapview(npBuffer,
+          col.region = '#EC2810',#red
+          layer.name = 'Buffer around National Parks',
+          alpha.regions = .2)+
+  mapview(hwyBuffer,
+          col.region = '#1C5f15',#green
+          layer.name = 'Buffer around highways',
+          alpha.regions = .2)
+
+m@map %>%
+  setView(lng = -77.2311, 
+          lat = 39.8309,
+          zoom = 12)
+```
+
+***
+The census block must be:
+
+- zoned for commercial interests
+
+- have lower population density than the Gettysburg median
+
+- be larger than than 40 acres. 
+
+
+### Selection by location based on decision factors.
+
+```{r}
+#Find blocks that are part of the attribute select and inside the gettysburg buffer
+#Of those, find those that are not in the national park buffer
+
+dissolve = npBuffer %>%
+  group_by(STATE) %>% #There's only one state but this allows us to 'dissolve' away the four polygons into one multipolygon.
+  summarize(first(STATE))  #there is no sf package 'dissolve'; use a combination of group_by and summarize
+
+blocksInBuffer = attributeSelect[gettyBuffer,] #Find those dplyr-selected properties that fall within the gettysburg mile buffer. 
+
+#use st_disjoin to find blocks that do not intersect the dissolved Gettysburg Buffer since we DON'T want potential areas in National Parks
+
+noPark = st_disjoint(dissolve, blocksInBuffer, sparse = F)
+finalSelection = blocksInBuffer[noPark,] %>% st_transform(4326)
+
+
+cntr_coords = c(mean(st_coordinates(finalSelection)[,1]),
+                mean(st_coordinates(finalSelection)[,2]))
+  
+leaflet() %>%
+  addTiles() %>%
+  leafem::addFeatures(finalSelection,
+                      weight = 1,
+                      fillColor='#df1fca',#gold
+                      color = '#A89932',#gold,
+                      opacity = 1,
+                      fillOpacity = .8) %>%
+  setView(lng = -77.2311, 
+          lat = 39.8309, 
+          zoom = 12) %>%
+  addMarkers(lng = cntr_coords[1],
+             lat = cntr_coords[2],
+          popup = 'Suitable Casino Site')
+```
+
+***
+We have found blocks that meet the appropriate decision factors in regards to zoning, population, and size. 
+
+We can now limit our search to blocks that are outside of Gettysburg downtown, inside our Gettysburg buffer, outside the National Parks, and close to a highway. 
